@@ -381,7 +381,7 @@ $(document).ready(function () {
         $exchange.remove();
         // send the request
 
-        var method = $tryURI.data("method")
+        var method = $tryURI.data("method");
         var uri = $tryURI.data("uri");
         var error = false;
         $('.TryURIParameter', $tryURI).each(function () {
@@ -526,10 +526,10 @@ $(document).ready(function () {
             .addClass('pull-left')
             .text(' ' + description)
             .appendTo($description);
-        $label = $('<span>')
+        $('<span>')
             .addClass('label label-' +  methodButtonClass[method])
             .text(method).prependTo($doc);
-        $role = $('<div>')
+        $('<div>')
             .addClass('pull-right')
             .text('[ role : ' + role + ' ]')
             .appendTo($description);
@@ -567,8 +567,9 @@ $(document).ready(function () {
             .appendTo($tryURI);              
 
         var segments = endpoint.uri.split("/");
-        var accumulator= method + " ";
-        for (var i=0; i<segments.length; i++) {
+        var accumulator = method + " ";
+        var i;
+        for (i = 0; i<segments.length; i++) {
             if (segments[i] === "") {
                 continue;
             }
@@ -681,7 +682,7 @@ $(document).ready(function () {
 
         addSchemaToTable($table, io, 0, "[root]", false, false);
         return $table;
-   }
+    }
 
     function addSingleSchemaRow(table, level, type, name, details, optional, desc) {
         if (optional) {
@@ -721,9 +722,9 @@ $(document).ready(function () {
                                    details, optional, schema.description);
                 break;
             case "array":
-                addSchemaToTable(table, schema.items, level, name, true, optional)
+                addSchemaToTable(table, schema.items, level, name, true, optional);
                 break;
-            case "object":
+            //case "object":
             default:
                 addSingleSchemaRow(table, level, prefix + "object", name,
                                    details, optional, schema.description);
