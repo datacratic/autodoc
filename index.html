@@ -79,8 +79,8 @@ $(document).ready(function () {
             docstring = (!details) && (!details.docstring) ? '' : details.docstring;
             role = (!details) && (!details.required_role) ? '' : details.required_role;
 
-            input = (!details) ? null : details.in; 
-            output = (!details) ? null : details.out; 
+            input = (!details) ? null : details.in;
+            output = (!details) ? null : details.out;
 
             if (uri === lastURI) {
                 // augment endpoint
@@ -138,7 +138,7 @@ $(document).ready(function () {
         var $pageHeader = $('<div>')
             .addClass('page-header')
             .appendTo($container);
-        var $h2 = $('<h2>')
+        $('<h2>')
             .text('Interactive Documentation')
             .appendTo($pageHeader);
 
@@ -146,10 +146,10 @@ $(document).ready(function () {
         listing.sort(function (a,b){ return a.uri.localeCompare(b.uri); });
 
         var i, endpoint, uri, methods, docs, ids, $row, $col, $panel, $heading,
-            $body, $group, method, _i, _len, enabled;
+            $group, method, _i, _len, enabled;
         var all = listing.length;
         for (i = 0 ; i < all; i++) {
-            endpoint = listing[i]; 
+            endpoint = listing[i];
             uri = endpoint.uri;
             methods = endpoint.methods;
             docs = endpoint.docs;
@@ -335,7 +335,7 @@ $(document).ready(function () {
                 ));
             }
             var $response = $('<pre>').css({"max-height":"400px","overflow":"scroll"})
-                .html(messageHTML + contentOutHTML + contentLengthHTML + '<br>' + responseTextHTML)
+                .html(messageHTML + contentOutHTML + contentLengthHTML + '<br>' + responseTextHTML);
 
             if (jqXHR.status >= 400) {
                 $response.css("border-color", "#CC6060");
@@ -439,7 +439,7 @@ $(document).ready(function () {
     }
 
     function showReferenceDocs(literate) {
-        if(literate.length === 0) {
+        if (literate.length === 0) {
             return;
         }
 
@@ -519,17 +519,17 @@ $(document).ready(function () {
             .appendTo($panel);
 
         var $description = $('<div>').addClass('clearfix').appendTo($heading);
-        if (description == null) {
+        if (description === null) {
             description = "";
         }
         var $doc = $('<div>')
             .addClass('pull-left')
             .text(' ' + description)
             .appendTo($description);
-        var $label = $('<span>')
+        $label = $('<span>')
             .addClass('label label-' +  methodButtonClass[method])
             .text(method).prependTo($doc);
-        var $role = $('<div>')
+        $role = $('<div>')
             .addClass('pull-right')
             .text('[ role : ' + role + ' ]')
             .appendTo($description);
@@ -568,8 +568,8 @@ $(document).ready(function () {
 
         var segments = endpoint.uri.split("/");
         var accumulator= method + " ";
-        for(var i=0; i<segments.length; i++) {
-            if (segments[i] =="") {
+        for (var i=0; i<segments.length; i++) {
+            if (segments[i] === "") {
                 continue;
             }
             if (segments[i][0] != "<") {
@@ -588,7 +588,7 @@ $(document).ready(function () {
             }
         }
 
-        if(accumulator != "") {
+        if (accumulator !== "") {
             $('<span>').text(accumulator).appendTo($code);
         }
 
@@ -637,7 +637,7 @@ $(document).ready(function () {
                 if (schema.enum) {
                     result += '"' +  schema.enum[0] + '"';
                 }
-                else if(schema.patternName == "ISO 8601 date-time") {
+                else if (schema.patternName == "ISO 8601 date-time") {
                     result += '"' + (new Date()).toISOString() + '"';
                 }
                 else {
@@ -648,7 +648,7 @@ $(document).ready(function () {
             case "array":
                 result += "[ " + createStarterJSON(schema.items, level) + " ]";
                 break;
-            case "object":
+            //case "object":
             default:
                 result += "{\n";
                 for (var p in schema.properties) {
@@ -684,10 +684,10 @@ $(document).ready(function () {
    }
 
     function addSingleSchemaRow(table, level, type, name, details, optional, desc) {
-        if(optional) {
+        if (optional) {
             name += " (optional)";
         }
-        if (desc == null) {
+        if (desc === null) {
             desc = ""; 
         }
         table.append( 
@@ -708,25 +708,25 @@ $(document).ready(function () {
             case "number":
             case "boolean":
             case "string":
-                if(schema.enum) {
+                if (schema.enum) {
                     details.push("one of: " + schema.enum.join(", "));
                 }
-                else if(schema.patternName) {
+                else if (schema.patternName) {
                     details.push("pattern: " + schema.patternName);
                 }
-                else if(schema.maxLength) {
+                else if (schema.maxLength) {
                     details.push("max length: " + schema.maxLength);
                 }
-                addSingleSchemaRow(table, level, prefix+schema.type, name, 
-                                   details, optional, schema.description)
+                addSingleSchemaRow(table, level, prefix + schema.type, name,
+                                   details, optional, schema.description);
                 break;
             case "array":
                 addSchemaToTable(table, schema.items, level, name, true, optional)
                 break;
             case "object":
             default:
-                addSingleSchemaRow(table, level, prefix+"object", name, 
-                                   details, optional, schema.description)
+                addSingleSchemaRow(table, level, prefix + "object", name,
+                                   details, optional, schema.description);
                 for (var p in schema.properties) {
                     if (schema.properties.hasOwnProperty(p)) {
                         var subSchema = schema.properties[p];
