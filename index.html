@@ -63,306 +63,6 @@ $(document).ready(function () {
         "DELETE" : "danger"
     };
 
-    $.getJSON("autodoc", function (data) {
-        //showAlert(data.config);
-        //showReferenceDocs(data.literate);
-        //console.log(data);
-        showInteractiveDocs(data.routes);
-    });
-
-    function showAlert(config) {
-        if (config !== null) {
-            if (config.alert !== null && config.alert.contents !== null) {
-                var container = $('<div>')
-                   .css({"width":"650px", "margin":"15px auto", "text-align": "center"})
-                   .appendTo($("body"));
-                $("<div>").addClass("alert alert-dismissable")
-                   .html(config.alert.contents)
-                   .prepend($('<button type="button" class="close" data-dismiss="alert" aria-hidden="true">').html("&times;"))
-                   .addClass("alert-" + (config.alert.type === null ? "info" : config.alert.type))
-                   .appendTo(container);
-            }
-        }
-    }
-
-    function onHeadingClick(event) {
-        var $heading = $(event.currentTarget);
-        var $group = $('.ItemGroup', $heading);
-        var $item = $group.parents('.ItemPanel');
-
-        var state = $group.data('state');
-
-
-        if (state !== 'closed') {
-            var selector = "." + state;
-            $(selector, $group).toggleClass('active', false).html(state);
-            closePanel(state, $item);
-            $group.data('state', 'closed');
-        } else {
-            $('.btn', $group).not(".btn-default")[0].click();
-        }
-
-        event.stopPropagation();
-    }
-
-    function onMethodButtonClick(event) {
-        var $button = $(event.currentTarget);
-        var $group = $button.parents('.ItemGroup');
-        var $item = $group.parents('.ItemPanel');
-
-        $button.toggleClass('active');
-        var selected = $button.hasClass('active');
-
-        var type = getButtonType($button);
-        var state = $group.data('state');
-
-        if (state !== 'closed') {
-            // close the open panel first
-            var selector = "." + state;
-            $(selector, $group).toggleClass('active', false).html(state);
-            closePanel(state, $item);
-            state = 'closed';
-        }
-
-        if (selected) {
-            // show selected panel
-            openPanel(type, $item);
-            state = type;
-        }
-
-        $group.data('state', state);
-
-        event.stopPropagation();
-   }
-
-   // NOTE Try It buttom bacomes submit button when interactive part is expanded.
-    function onTryButtonClick(event) {
-        var $tryItButton = $(event.currentTarget);
-        var $tryURI = $tryItButton.siblings('.TryURI');
-        var $well = $tryItButton.parents('.InteractionWell');
-        var $panel = $tryItButton.parents('.ItemMethod');
-        var $jsonTextArea = $('.JSONTextArea', $well);
-
-        var $jsonSyntaxError = $('.JSONSyntaxError');
-        $jsonSyntaxError.remove();
-
-        var id = $panel.data('id');
-        var inputData = {};
-
-        // clean up
-        var $exchange = $('.Exchange', $well);
-        $exchange.remove();
-        // send the request
-
-        var method = $tryURI.data("method")
-        var uri = $tryURI.data("uri");
-        var error = false;
-        $('.TryURIParameter', $tryURI).each(function () {
-            if (error) {
-                return;
-            }
-            if ($(this).val().trim() == "") {
-                error = true;
-                return; // abort!
-            }
-            uri = uri.replace($(this).data("replacetext"), $(this).val());
-        });
-
-        if (error) {
-            $('<span>')
-                .addClass('JSONSyntaxError')
-                .css('color', '#CC0000')
-                .text("Missing a URL parameter")
-                .insertAfter($tryItButton);
-            return; // abort!
-        }
-
-        if (method === 'POST' || method === 'PUT') {
-            try {
-                var editor = ace.edit($jsonTextArea[0]);
-                inputData = editor.getValue(); 
-                $.parseJSON(inputData); //try a parse in case it throws
-            } catch (e) {
-                $('<span>')
-                    .addClass('JSONSyntaxError')
-                    .css('color', '#CC0000')
-                    .text("JSON Syntax Error " + e.message)
-                    .insertAfter($tryItButton);
-                return; // abort!
-            }
-        }
-        submitIt(id, method, uri, inputData);
-    }
-
-    function replacement(match) {
-        var cls = 'number';
-        if (/^"/.test(match)) {
-            if (/:$/.test(match)) {
-                cls = 'key';
-            } else {
-                cls = 'string';
-            }
-        } else if (/true|false/.test(match)) {
-            cls = 'boolean';
-        } else if (/null/.test(match)) {
-            cls = 'null';
-        }
-
-        return '<span class="' + cls + '">' + match + '</span>';
-    }
-
-
-   // Return syntax highlighted HTML given plain JSON string.
-    function syntaxHighlight(json) {
-        json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, replacement);
-   }
-
-
-    function getButtonType($button) {
-        var type = null;
-        $(['GET', 'POST', 'PUT', 'DELETE']).each(function (_, cls) {
-            if ($button.hasClass(cls)) {
-                type = cls;
-                return false;
-            }
-        });
-        return type;
-    }
-
-    function openPanel(type, $container) {
-        $('.ItemBody', $container).css('display', 'block');
-
-        var panel = '.' + 'panel' + '.' + type;
-        $(panel, $container).css('display', 'block');
-    }
-
-    function closePanel(type, $container) {
-        $('.ItemBody', $container).css('display', 'none');
-
-        var panel = '.' + 'panel' + '.' + type;
-        $(panel, $container).css('display', 'none');
-    }
-
-
-
-    function submitIt(id, method, uri, inputData) {  
-        var renderRequest = function (id, jqXHR) {
-            var $panel = null;
-            $('.ItemMethod').each(function (index) {
-                if (id === $(this).data('id')) {
-                    $panel = $(this);
-                }
-            });
-
-            var $well = $('.InteractionWell', $panel);
-            var $interaction = $('<div>')
-                .addClass('panel panel-default pull-right Exchange')
-                .appendTo($well);   
-            if (method === "POST" || method === "PUT") {
-                $interaction.css("width", "49%");
-            } else {
-                $interaction.css("width", "100%");
-            }
-
-            var $exchange = $('<div>')
-                .addClass('panel-body')
-                .appendTo($interaction);
-
-            var requestHTML = method + ' ' + uri + '<br>';
-            var contentInHTML = '';
-
-            if(method === "POST" || method === "PUT") {
-                contentInHTML = 'Content-Type : application/json<br>';
-            }
-
-            $('<pre>')
-                .html(requestHTML + contentInHTML)
-                .appendTo($exchange);
-
-            var messageHTML = jqXHR.status + ' ' + jqXHR.statusText + '<br>';
-            var contentOutHTML = 'Content-Type : ' + jqXHR.getResponseHeader('Content-Type') + '<br>';
-            var contentLengthHTML = 'Content-Length : ' + jqXHR.getResponseHeader('Content-Length') + '<br>';
-            var responseTextHTML = jqXHR.responseText;
-            if (jqXHR.getResponseHeader('Content-Type') === "application/json") {
-                responseTextHTML = syntaxHighlight( JSON.stringify(
-                    JSON.parse(responseTextHTML), undefined, 3
-                ));
-            }
-            var $response = $('<pre>').css({"max-height":"400px","overflow":"scroll"})
-                .html(messageHTML + contentOutHTML + contentLengthHTML + '<br>' + responseTextHTML)
-
-            if (jqXHR.status >= 400) {
-                $response.css("border-color", "#CC6060");
-            }
-            $response.appendTo($exchange);
-        };
-
-        var parameters = {
-            url : uri,
-            type : method,
-            success : function (response, status, jqXHR){
-                renderRequest(id, jqXHR);
-            },
-            error : function (jqXHR) {
-                renderRequest(id, jqXHR);
-            }
-        };
-
-        if (method === "POST" || method === "PUT") {
-            parameters.data = inputData;
-            parameters.contentType = "application/json";
-        }
-
-        $.ajax(parameters);
-    }
-
-    function processData(data) {
-        var endpoints = []; 
-        var lastURI = null; 
-
-        for (var i = 0, all = data.length; i < all; i++) {
-            var seperated = data[i][0].split(" ")
-            var method = seperated[0].trim();
-            var uri = seperated[1].trim();
-
-
-            var details = data[i][1];
-            var docstring = (!details) && (!details.docstring) ? '' : details.docstring;
-            var role = (!details) && (!details.required_role) ? '' : details.required_role;
-
-            var input = (!details) ? null : details.in; 
-            var output = (!details) ? null : details.out; 
-
-            if (uri === lastURI) {
-                // augment endpoint
-                var last = endpoints.length - 1;
-                endpoints[last].methods.push(method);
-                endpoints[last].docs.push(docstring);
-                endpoints[last].roles.push(role);
-                endpoints[last].inputs.push(input);
-                endpoints[last].outputs.push(output);
-                endpoints[last].ids.push(i);
-            } else {
-                // new endpoint
-                var item = {
-                    uri     : uri,
-                    methods : [ method ],
-                    docs    : [ docstring ],
-                    roles   : [ role ],
-                    inputs  : [ input ],
-                    outputs : [ output ],
-                    ids     : [ i ]
-                };
-                endpoints.push(item);
-            }
-            lastURI = uri;
-        }
-
-        return endpoints;
-    }
-
-
     function showInteractiveDocs(routes) {
         var $body = $('body');
         var $container = $('<div>').addClass('container');
@@ -434,6 +134,306 @@ $(document).ready(function () {
 
         $("<div class='text-center' style='color: #aaa'>").text("© Copyright 2010-2014 Datacratic Inc. All Rights Reserved").appendTo($container);
    }
+
+
+
+    $.getJSON("autodoc", function (data) {
+        //showAlert(data.config);
+        //showReferenceDocs(data.literate);
+        //console.log(data);
+        showInteractiveDocs(data.routes);
+    });
+
+    function showAlert(config) {
+        if (config !== null) {
+            if (config.alert !== null && config.alert.contents !== null) {
+                var container = $('<div>')
+                   .css({"width":"650px", "margin":"15px auto", "text-align": "center"})
+                   .appendTo($("body"));
+                $("<div>").addClass("alert alert-dismissable")
+                   .html(config.alert.contents)
+                   .prepend($('<button type="button" class="close" data-dismiss="alert" aria-hidden="true">').html("&times;"))
+                   .addClass("alert-" + (config.alert.type === null ? "info" : config.alert.type))
+                   .appendTo(container);
+            }
+        }
+    }
+
+    function closePanel(type, $container) {
+        $('.ItemBody', $container).css('display', 'none');
+
+        var panel = '.' + 'panel' + '.' + type;
+        $(panel, $container).css('display', 'none');
+    }
+
+
+    function onHeadingClick(event) {
+        var $heading = $(event.currentTarget);
+        var $group = $('.ItemGroup', $heading);
+        var $item = $group.parents('.ItemPanel');
+
+        var state = $group.data('state');
+
+
+        if (state !== 'closed') {
+            var selector = "." + state;
+            $(selector, $group).toggleClass('active', false).html(state);
+            closePanel(state, $item);
+            $group.data('state', 'closed');
+        } else {
+            $('.btn', $group).not(".btn-default")[0].click();
+        }
+
+        event.stopPropagation();
+    }
+
+    function openPanel(type, $container) {
+        $('.ItemBody', $container).css('display', 'block');
+
+        var panel = '.' + 'panel' + '.' + type;
+        $(panel, $container).css('display', 'block');
+    }
+
+    function onMethodButtonClick(event) {
+        var $button = $(event.currentTarget);
+        var $group = $button.parents('.ItemGroup');
+        var $item = $group.parents('.ItemPanel');
+
+        $button.toggleClass('active');
+        var selected = $button.hasClass('active');
+
+        var type = getButtonType($button);
+        var state = $group.data('state');
+
+        if (state !== 'closed') {
+            // close the open panel first
+            var selector = "." + state;
+            $(selector, $group).toggleClass('active', false).html(state);
+            closePanel(state, $item);
+            state = 'closed';
+        }
+
+        if (selected) {
+            // show selected panel
+            openPanel(type, $item);
+            state = type;
+        }
+
+        $group.data('state', state);
+
+        event.stopPropagation();
+    }
+
+    function submitIt(id, method, uri, inputData) {  
+        var renderRequest = function (id, jqXHR) {
+            var $panel = null;
+            $('.ItemMethod').each(function () {
+                if (id === $(this).data('id')) {
+                    $panel = $(this);
+                }
+            });
+
+            var $well = $('.InteractionWell', $panel);
+            var $interaction = $('<div>')
+                .addClass('panel panel-default pull-right Exchange')
+                .appendTo($well);   
+            if (method === "POST" || method === "PUT") {
+                $interaction.css("width", "49%");
+            } else {
+                $interaction.css("width", "100%");
+            }
+
+            var $exchange = $('<div>')
+                .addClass('panel-body')
+                .appendTo($interaction);
+
+            var requestHTML = method + ' ' + uri + '<br>';
+            var contentInHTML = '';
+
+            if (method === "POST" || method === "PUT") {
+                contentInHTML = 'Content-Type : application/json<br>';
+            }
+
+            $('<pre>')
+                .html(requestHTML + contentInHTML)
+                .appendTo($exchange);
+
+            var messageHTML = jqXHR.status + ' ' + jqXHR.statusText + '<br>';
+            var contentOutHTML = 'Content-Type : ' + jqXHR.getResponseHeader('Content-Type') + '<br>';
+            var contentLengthHTML = 'Content-Length : ' + jqXHR.getResponseHeader('Content-Length') + '<br>';
+            var responseTextHTML = jqXHR.responseText;
+            if (jqXHR.getResponseHeader('Content-Type') === "application/json") {
+                responseTextHTML = syntaxHighlight( JSON.stringify(
+                    JSON.parse(responseTextHTML), undefined, 3
+                ));
+            }
+            var $response = $('<pre>').css({"max-height":"400px","overflow":"scroll"})
+                .html(messageHTML + contentOutHTML + contentLengthHTML + '<br>' + responseTextHTML)
+
+            if (jqXHR.status >= 400) {
+                $response.css("border-color", "#CC6060");
+            }
+            $response.appendTo($exchange);
+        };
+
+        var parameters = {
+            url : uri,
+            type : method,
+            success : function (response, status, jqXHR){
+                renderRequest(id, jqXHR);
+            },
+            error : function (jqXHR) {
+                renderRequest(id, jqXHR);
+            }
+        };
+
+        if (method === "POST" || method === "PUT") {
+            parameters.data = inputData;
+            parameters.contentType = "application/json";
+        }
+
+        $.ajax(parameters);
+    }
+
+    // NOTE Try It buttom bacomes submit button when interactive part is expanded.
+    function onTryButtonClick(event) {
+        var $tryItButton = $(event.currentTarget);
+        var $tryURI = $tryItButton.siblings('.TryURI');
+        var $well = $tryItButton.parents('.InteractionWell');
+        var $panel = $tryItButton.parents('.ItemMethod');
+        var $jsonTextArea = $('.JSONTextArea', $well);
+
+        var $jsonSyntaxError = $('.JSONSyntaxError');
+        $jsonSyntaxError.remove();
+
+        var id = $panel.data('id');
+        var inputData = {};
+
+        // clean up
+        var $exchange = $('.Exchange', $well);
+        $exchange.remove();
+        // send the request
+
+        var method = $tryURI.data("method")
+        var uri = $tryURI.data("uri");
+        var error = false;
+        $('.TryURIParameter', $tryURI).each(function () {
+            if (error) {
+                return;
+            }
+            if ($(this).val().trim() === "") {
+                error = true;
+                return; // abort!
+            }
+            uri = uri.replace($(this).data("replacetext"), $(this).val());
+        });
+
+        if (error) {
+            $('<span>')
+                .addClass('JSONSyntaxError')
+                .css('color', '#CC0000')
+                .text("Missing a URL parameter")
+                .insertAfter($tryItButton);
+            return; // abort!
+        }
+
+        if (method === 'POST' || method === 'PUT') {
+            try {
+                var editor = ace.edit($jsonTextArea[0]);
+                inputData = editor.getValue(); 
+                $.parseJSON(inputData); //try a parse in case it throws
+            } catch (e) {
+                $('<span>')
+                    .addClass('JSONSyntaxError')
+                    .css('color', '#CC0000')
+                    .text("JSON Syntax Error " + e.message)
+                    .insertAfter($tryItButton);
+                return; // abort!
+            }
+        }
+        submitIt(id, method, uri, inputData);
+    }
+
+    function replacement(match) {
+        var cls = 'number';
+        if (/^"/.test(match)) {
+            if (/:$/.test(match)) {
+                cls = 'key';
+            } else {
+                cls = 'string';
+            }
+        } else if (/true|false/.test(match)) {
+            cls = 'boolean';
+        } else if (/null/.test(match)) {
+            cls = 'null';
+        }
+
+        return '<span class="' + cls + '">' + match + '</span>';
+    }
+
+
+   // Return syntax highlighted HTML given plain JSON string.
+    function syntaxHighlight(json) {
+        json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, replacement);
+   }
+
+
+    function getButtonType($button) {
+        var type = null;
+        $(['GET', 'POST', 'PUT', 'DELETE']).each(function (_, cls) {
+            if ($button.hasClass(cls)) {
+                type = cls;
+                return false;
+            }
+        });
+        return type;
+    }
+
+    function processData(data) {
+        var endpoints = []; 
+        var lastURI = null; 
+
+        for (var i = 0, all = data.length; i < all; i++) {
+            var seperated = data[i][0].split(" ");
+            var method = seperated[0].trim();
+            var uri = seperated[1].trim();
+
+
+            var details = data[i][1];
+            var docstring = (!details) && (!details.docstring) ? '' : details.docstring;
+            var role = (!details) && (!details.required_role) ? '' : details.required_role;
+
+            var input = (!details) ? null : details.in; 
+            var output = (!details) ? null : details.out; 
+
+            if (uri === lastURI) {
+                // augment endpoint
+                var last = endpoints.length - 1;
+                endpoints[last].methods.push(method);
+                endpoints[last].docs.push(docstring);
+                endpoints[last].roles.push(role);
+                endpoints[last].inputs.push(input);
+                endpoints[last].outputs.push(output);
+                endpoints[last].ids.push(i);
+            } else {
+                // new endpoint
+                var item = {
+                    uri     : uri,
+                    methods : [ method ],
+                    docs    : [ docstring ],
+                    roles   : [ role ],
+                    inputs  : [ input ],
+                    outputs : [ output ],
+                    ids     : [ i ]
+                };
+                endpoints.push(item);
+            }
+            lastURI = uri;
+        }
+
+        return endpoints;
+    }
 
 
     function showReferenceDocs(literate) {
