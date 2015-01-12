@@ -63,6 +63,73 @@ $(document).ready(function () {
         "DELETE" : "danger"
     };
 
+    function processData(data) {
+        var endpoints = [],
+            lastURI = null,
+            all = data.length,
+            separated, method, uri, details, docstring, role, input, output,
+            last, item, i;
+
+        for (i = 0; i < all; i++) {
+            separated = data[i][0].split(" ");
+            method = separated[0].trim();
+            uri = separated[1].trim();
+
+            details = data[i][1];
+            docstring = (!details) && (!details.docstring) ? '' : details.docstring;
+            role = (!details) && (!details.required_role) ? '' : details.required_role;
+
+            input = (!details) ? null : details.in; 
+            output = (!details) ? null : details.out; 
+
+            if (uri === lastURI) {
+                // augment endpoint
+                last = endpoints.length - 1;
+                endpoints[last].methods.push(method);
+                endpoints[last].docs.push(docstring);
+                endpoints[last].roles.push(role);
+                endpoints[last].inputs.push(input);
+                endpoints[last].outputs.push(output);
+                endpoints[last].ids.push(i);
+            } else {
+                // new endpoint
+                item = {
+                    uri     : uri,
+                    methods : [ method ],
+                    docs    : [ docstring ],
+                    roles   : [ role ],
+                    inputs  : [ input ],
+                    outputs : [ output ],
+                    ids     : [ i ]
+                };
+                endpoints.push(item);
+            }
+            lastURI = uri;
+        }
+
+        return endpoints;
+    }
+
+    function onHeadingClick(event) {
+        var $heading = $(event.currentTarget);
+        var $group = $('.ItemGroup', $heading);
+        var $item = $group.parents('.ItemPanel');
+
+        var state = $group.data('state');
+
+
+        if (state !== 'closed') {
+            var selector = "." + state;
+            $(selector, $group).toggleClass('active', false).html(state);
+            closePanel(state, $item);
+            $group.data('state', 'closed');
+        } else {
+            $('.btn', $group).not(".btn-default")[0].click();
+        }
+
+        event.stopPropagation();
+    }
+
     function showInteractiveDocs(routes) {
         var $body = $('body');
         var $container = $('<div>').addClass('container');
@@ -78,64 +145,67 @@ $(document).ready(function () {
         var listing = processData(routes);
         listing.sort(function (a,b){ return a.uri.localeCompare(b.uri); });
 
-        for (var i = 0, all = listing.length; i < all; i++) {
-            var endpoint = listing[i]; 
-            var uri = endpoint.uri;
-            var methods = endpoint.methods;
-            var docs = endpoint.docs;
-            var ids = endpoint.ids;
+        var i, endpoint, uri, methods, docs, ids, $row, $col, $panel, $heading,
+            $body, $group, method, _i, _len, enabled;
+        var all = listing.length;
+        for (i = 0 ; i < all; i++) {
+            endpoint = listing[i]; 
+            uri = endpoint.uri;
+            methods = endpoint.methods;
+            docs = endpoint.docs;
+            ids = endpoint.ids;
 
-            var $row = $('<div>')
+            $row = $('<div>')
                 .addClass('row ItemRow')
                 .appendTo($container);
 
-            var $col = $('<div>')
+            $col = $('<div>')
                 .addClass('col-xs-12 ItemCol')
                 .appendTo($row);
 
-            var $panel = $('<div>')
+            $panel = $('<div>')
                 .addClass('panel panel-default ItemPanel')
                 .attr('id', 'item' + i)
                 .appendTo($col);
 
-            var $heading = $('<div>')
+            $heading = $('<div>')
                 .addClass('panel-heading ItemHeading')
                 .appendTo($panel);
 
-            $heading.click(onHeadingClick);               
+            $heading.click(onHeadingClick);
 
-            var $body = $('<div>')
+            $body = $('<div>')
                 .addClass('panel-body ItemBody')
                 .css('display', 'none')
                 .appendTo($panel);
 
-            // button group           
-            var $group = $('<div>')
+            // button group
+            $group = $('<div>')
                 .addClass('btn-group btn-group-xs ItemGroup')
                 .data('state', 'closed')
                 .appendTo($heading);
 
             // URI
-            var $uri = $('<strong>')
+            $('<strong>')
                 .text(' ' + uri)
                 .appendTo($heading);
 
-            var method, _i, _len;
+            _len = allMethods.length;
 
-            for (_i = 0, _len = allMethods.length; _i < _len; _i++) {
+            for (_i = 0; _i < _len; _i++) {
                 method = allMethods[_i];
-                var enabled = (methods.indexOf(method) != -1);
-                $group.append(createMethodButton(method, enabled));  
+                enabled = (methods.indexOf(method) !== -1);
+                $group.append(createMethodButton(method, enabled));
                 if (enabled) {
                     $body.append(createPanel(method, endpoint));
                 }
             }
         }
 
-        $("<div class='text-center' style='color: #aaa'>").text("© Copyright 2010-2014 Datacratic Inc. All Rights Reserved").appendTo($container);
+        $("<div class='text-center' style='color: #aaa'>")
+            .text("© Copyright 2010-2015 Datacratic Inc. All Rights Reserved")
+            .appendTo($container);
    }
-
-
 
     $.getJSON("autodoc", function (data) {
         //showAlert(data.config);
@@ -167,31 +237,22 @@ $(document).ready(function () {
     }
 
 
-    function onHeadingClick(event) {
-        var $heading = $(event.currentTarget);
-        var $group = $('.ItemGroup', $heading);
-        var $item = $group.parents('.ItemPanel');
-
-        var state = $group.data('state');
-
-
-        if (state !== 'closed') {
-            var selector = "." + state;
-            $(selector, $group).toggleClass('active', false).html(state);
-            closePanel(state, $item);
-            $group.data('state', 'closed');
-        } else {
-            $('.btn', $group).not(".btn-default")[0].click();
-        }
-
-        event.stopPropagation();
-    }
-
     function openPanel(type, $container) {
         $('.ItemBody', $container).css('display', 'block');
 
         var panel = '.' + 'panel' + '.' + type;
         $(panel, $container).css('display', 'block');
+    }
+
+    function getButtonType($button) {
+        var type = null;
+        $(['GET', 'POST', 'PUT', 'DELETE']).each(function (_, cls) {
+            if ($button.hasClass(cls)) {
+                type = cls;
+                return false;
+            }
+        });
+        return type;
     }
 
     function onMethodButtonClick(event) {
@@ -224,7 +285,13 @@ $(document).ready(function () {
         event.stopPropagation();
     }
 
-    function submitIt(id, method, uri, inputData) {  
+    // Return syntax highlighted HTML given plain JSON string.
+    function syntaxHighlight(json) {
+        json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, replacement);
+    }
+
+    function submitIt(id, method, uri, inputData) {
         var renderRequest = function (id, jqXHR) {
             var $panel = null;
             $('.ItemMethod').each(function () {
@@ -236,7 +303,7 @@ $(document).ready(function () {
             var $well = $('.InteractionWell', $panel);
             var $interaction = $('<div>')
                 .addClass('panel panel-default pull-right Exchange')
-                .appendTo($well);   
+                .appendTo($well);
             if (method === "POST" || method === "PUT") {
                 $interaction.css("width", "49%");
             } else {
@@ -371,73 +438,8 @@ $(document).ready(function () {
         return '<span class="' + cls + '">' + match + '</span>';
     }
 
-
-   // Return syntax highlighted HTML given plain JSON string.
-    function syntaxHighlight(json) {
-        json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, replacement);
-   }
-
-
-    function getButtonType($button) {
-        var type = null;
-        $(['GET', 'POST', 'PUT', 'DELETE']).each(function (_, cls) {
-            if ($button.hasClass(cls)) {
-                type = cls;
-                return false;
-            }
-        });
-        return type;
-    }
-
-    function processData(data) {
-        var endpoints = []; 
-        var lastURI = null; 
-
-        for (var i = 0, all = data.length; i < all; i++) {
-            var seperated = data[i][0].split(" ");
-            var method = seperated[0].trim();
-            var uri = seperated[1].trim();
-
-
-            var details = data[i][1];
-            var docstring = (!details) && (!details.docstring) ? '' : details.docstring;
-            var role = (!details) && (!details.required_role) ? '' : details.required_role;
-
-            var input = (!details) ? null : details.in; 
-            var output = (!details) ? null : details.out; 
-
-            if (uri === lastURI) {
-                // augment endpoint
-                var last = endpoints.length - 1;
-                endpoints[last].methods.push(method);
-                endpoints[last].docs.push(docstring);
-                endpoints[last].roles.push(role);
-                endpoints[last].inputs.push(input);
-                endpoints[last].outputs.push(output);
-                endpoints[last].ids.push(i);
-            } else {
-                // new endpoint
-                var item = {
-                    uri     : uri,
-                    methods : [ method ],
-                    docs    : [ docstring ],
-                    roles   : [ role ],
-                    inputs  : [ input ],
-                    outputs : [ output ],
-                    ids     : [ i ]
-                };
-                endpoints.push(item);
-            }
-            lastURI = uri;
-        }
-
-        return endpoints;
-    }
-
-
     function showReferenceDocs(literate) {
-        if(literate.length == 0) {
+        if(literate.length === 0) {
             return;
         }
 
@@ -449,12 +451,13 @@ $(document).ready(function () {
         var $pageHeader = $('<div>')
             .addClass('page-header')
             .appendTo($container);
-        var $h2 = $('<h2>')
+        $('<h2>')
             .text('Reference Documentation')
             .appendTo($pageHeader);
 
         var ul = $("<ul>");
-        for (var i = 0; i < literate.length; i++) {
+        var i;
+        for (i = 0; i < literate.length; i++) {
             ul.append(
                 $("<li>").append(
                     $("<a>")
