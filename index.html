@@ -222,7 +222,7 @@ $(document).ready(function () {
 
     function getButtonType($button) {
         var type = null;
-        $(['GET', 'POST', 'PUT', 'DELETE']).each(function(cls) {
+        $(['GET', 'POST', 'PUT', 'DELETE']).each(function(_, cls) {
             if ($button.hasClass(cls)) {
                 type = cls;
                 return false;
